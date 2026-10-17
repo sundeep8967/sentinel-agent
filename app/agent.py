@@ -43,6 +43,8 @@ class SentinelAgent:
         print(f"❌ Initial test failed as expected (Exit code {initial_test['exit_code']}). Initiating healing loop...\n")
 
         # Step 2: Agent Reflection Loop
+        target_file = incident_payload.get("suspected_file", "metrics_engine.py")
+        original_code = self.sandbox.read_file(target_file)
         iteration = 0
         resolved = False
         last_failure_reason = initial_test["stdout"] + "\n" + initial_test["stderr"]
@@ -52,7 +54,6 @@ class SentinelAgent:
             print(f"🔄 --- [ITERATION {iteration}/{self.max_iterations}] FORMULATING REMEDIATION ---")
             
             # Read target file
-            target_file = incident_payload.get("suspected_file", "metrics_engine.py")
             current_code = self.sandbox.read_file(target_file)
             
             # Generate Patch
@@ -92,7 +93,7 @@ class SentinelAgent:
         # Step 3: Produce Summary & PR
         if resolved:
             final_code = self.sandbox.read_file(target_file)
-            diff = self._compute_unified_diff(current_code, final_code, target_file)
+            diff = self._compute_unified_diff(original_code, final_code, target_file)
             pr_payload = self._generate_pr_summary(incident_payload, diff, iteration)
             return {"status": "RESOLVED", "pr": pr_payload, "history": self.history}
         else:
