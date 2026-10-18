@@ -2,7 +2,10 @@
 Core metrics calculation engine for billing & transaction processing.
 [AUTO-HEALED BY SENTINEL AGENT]
 """
-from typing import List, Optional, TypedDict
+from bisect import bisect_left, insort
+from collections import deque
+from numbers import Real
+from typing import Iterable, List, Optional, TypedDict
 
 
 class Transaction(TypedDict, total=False):
@@ -27,6 +30,71 @@ class BatchMetrics(TypedDict):
     successful_count: int
     average_ticket: float
     failed_items: List[FailedTransaction]
+
+
+def calculate_rolling_percentile(
+    values: Iterable[float], window_size: int, percentile: Real
+) -> List[float]:
+    """Calculate a percentile for each complete rolling window.
+
+    The active window is kept in a fixed-size :class:`collections.deque`,
+    while a sorted list makes percentile lookup constant time.  ``bisect`` is
+    used to insert each incoming value and to locate the outgoing value when
+    the window advances, avoiding a full sort for every window.
+
+    Only complete windows are returned.  For example, a five-value input with
+    a window size of three produces three percentile values.  Percentiles use
+    the usual linear interpolation between the two surrounding ranks, with
+    ``0`` selecting the minimum and ``100`` selecting the maximum.
+
+    Args:
+        values: Numeric values in arrival order.  Any iterable is accepted,
+            including a generator.
+        window_size: Number of values in each fixed rolling window. Must be
+            a positive integer.
+        percentile: Requested percentile on the inclusive ``0`` to ``100``
+            scale.
+
+    Returns:
+        One interpolated percentile for every complete rolling window.
+
+    Raises:
+        ValueError: If ``window_size`` is not positive or ``percentile`` is
+            outside the inclusive ``0`` to ``100`` range.
+    """
+    if isinstance(window_size, bool) or not isinstance(window_size, int) or window_size < 1:
+        raise ValueError("window_size must be a positive integer")
+    if isinstance(percentile, bool) or not isinstance(percentile, Real) or not 0 <= percentile <= 100:
+        raise ValueError("percentile must be between 0 and 100")
+
+    window: deque[float] = deque(maxlen=window_size)
+    sorted_window: List[float] = []
+    result: List[float] = []
+
+    for value in values:
+        if len(window) == window_size:
+            outgoing = window[0]
+            del sorted_window[bisect_left(sorted_window, outgoing)]
+            window.popleft()
+
+        window.append(value)
+        insort(sorted_window, value)
+
+        if len(window) == window_size:
+            rank = (len(sorted_window) - 1) * float(percentile) / 100.0
+            lower_index = int(rank)
+            upper_index = min(lower_index + 1, len(sorted_window) - 1)
+            weight = rank - lower_index
+            lower = sorted_window[lower_index]
+            upper = sorted_window[upper_index]
+            result.append(float(lower + (upper - lower) * weight))
+
+    return result
+
+
+# Keep the concise name available for callers that treat this as a rolling
+# statistic rather than a general metrics calculation.
+rolling_percentile = calculate_rolling_percentile
 
 
 def calculate_discounted_tier(
