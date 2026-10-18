@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentinelAgent — Incident Remediation Control Room</title>
+  <meta name="description" content="Interactive local dashboard for the SentinelAgent autonomous incident-remediation pipeline.">
+  <meta name="theme-color" content="#080d18">
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card-bg: rgba(18, 24, 38, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-glow: rgba(56, 189, 248, 0.3);
+      --accent: #38bdf8;
+      --accent-grad: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --terminal-bg: #07090e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 75%, rgba(129, 140, 248, 0.08) 0%, transparent 40%);
+    }
+
+    header {
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(11, 15, 23, 0.85);
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--accent-grad);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
+    }
+
+    .brand-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+    }
+
+    .btn-gh {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      text-decoration: none;
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--card-border);
+      transition: all 0.2s;
+    }
+
+    .btn-gh:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-title {
+      font-size: clamp(2rem, 4.5vw, 3.25rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1rem;
+      line-height: 1.15;
+    }
+
+    .hero-title span {
+      background: var(--accent-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 750px;
+      margin: 0 auto;
+    }
+
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .step-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .step-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+    }
+
+    .step-num {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .step-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .step-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .simulator-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+      margin-bottom: 3rem;
+    }
+
+    .sim-header {
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid var(--card-border);
+      padding: 0.9rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .sim-tabs {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .sim-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sim-tab.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-color: var(--card-border);
+    }
+
+    .sim-controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn-action {
+      background: var(--accent-grad);
+      color: #0b0f17;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: opacity 0.2s;
+    }
+
+    .btn-action:hover {
+      opacity: 0.9;
+    }
+
+    .btn-action:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .sim-body {
+      padding: 1.5rem;
+      min-height: 440px;
+      background: var(--terminal-bg);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+    }
+
+    .terminal-line {
+      margin-bottom: 0.35rem;
+      animation: fadeIn 0.15s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .text-cyan { color: var(--accent); }
+    .text-green { color: var(--success); }
+    .text-red { color: var(--danger); }
+    .text-yellow { color: var(--warning); }
+    .text-muted { color: #64748b; }
+
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .metric-val {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+      color: var(--accent);
+    }
+
+    .metric-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .specs-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.5rem;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .check-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      font-size: 0.9rem;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .check-icon {
+      color: var(--success);
+      font-weight: 800;
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .top-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: #a7f3d0;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12), 0 0 14px rgba(16, 185, 129, 0.7);
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(290px, 0.85fr);
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .overview-card {
+      background: linear-gradient(135deg, rgba(18, 24, 38, 0.9), rgba(14, 22, 36, 0.7));
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      min-width: 0;
+    }
+
+    .overview-card--incident {
+      border-color: rgba(248, 113, 113, 0.24);
+      background: linear-gradient(135deg, rgba(58, 26, 42, 0.7), rgba(18, 24, 38, 0.85));
+    }
+
+    .eyebrow {
+      color: var(--text-muted);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .overview-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin: 0.5rem 0 1.05rem;
+    }
+
+    .overview-heading h2 {
+      font-size: 1.2rem;
+      letter-spacing: -0.02em;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border-radius: 999px;
+      padding: 0.3rem 0.65rem;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      background: rgba(16, 185, 129, 0.1);
+      color: #6ee7b7;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status-pill.is-running {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.1);
+      color: #7dd3fc;
+    }
+
+    .status-pill.is-idle {
+      border-color: rgba(148, 163, 184, 0.3);
+      background: rgba(148, 163, 184, 0.08);
+      color: #cbd5e1;
+    }
+
+    .incident-message {
+      color: #e2e8f0;
+      font-size: 0.92rem;
+      line-height: 1.65;
+      max-width: 70ch;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 1.15rem;
+    }
+
+    .detail-item {
+      min-width: 0;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .detail-label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      margin-bottom: 0.28rem;
+    }
+
+    .detail-value {
+      display: block;
+      overflow: hidden;
+      color: #f8fafc;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.76rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.25rem;
+    }
+
+    .run-card p {
+      color: var(--text-muted);
+      font-size: 0.86rem;
+      line-height: 1.6;
+      margin-top: 0.65rem;
+    }
+
+    .run-card .btn-action {
+      justify-content: center;
+      width: 100%;
+      padding: 0.75rem 1rem;
+    }
+
+    .run-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+
+    .run-meta-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 9px;
+      padding: 0.65rem 0.7rem;
+    }
+
+    .run-meta-item strong {
+      display: block;
+      color: #f8fafc;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.85rem;
+    }
+
+    .run-meta-item span {
+      display: block;
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      margin-top: 0.15rem;
+    }
+
+    .pipeline-heading {
+      align-items: end;
+      display: flex;
+      justify-content: space-between;
+      margin: 0 0 0.8rem;
+    }
+
+    .pipeline-heading h2 {
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+    }
+
+    .pipeline-heading span {
+      color: var(--text-muted);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.72rem;
+    }
+
+    .step-card {
+      min-height: 132px;
+    }
+
+    .step-card.complete {
+      border-color: rgba(16, 185, 129, 0.28);
+    }
+
+    .step-card.complete .step-num {
+      color: #6ee7b7;
+    }
+
+    .step-card.active::after {
+      background: var(--accent);
+      border-radius: 0 0 12px 12px;
+      bottom: 0;
+      content: "";
+      height: 3px;
+      left: 0;
+      position: absolute;
+      right: 0;
+    }
+
+    .sim-header {
+      position: relative;
+    }
+
+    .sim-tabs {
+      flex-wrap: wrap;
+    }
+
+    .sim-tab:focus-visible,
+    .btn-action:focus-visible,
+    .nav-link:focus-visible,
+    .btn-gh:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .sim-body {
+      min-height: 420px;
+    }
+
+    .terminal-line {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .diff-line {
+      display: block;
+      min-height: 1.45em;
+      padding: 0 0.4rem;
+    }
+
+    .diff-line.added {
+      background: rgba(16, 185, 129, 0.11);
+      color: #86efac;
+    }
+
+    .diff-line.removed {
+      background: rgba(239, 68, 68, 0.11);
+      color: #fca5a5;
+    }
+
+    .diff-line.meta {
+      color: #7dd3fc;
+    }
+
+    .payload-view {
+      color: #cbd5e1;
+      white-space: pre-wrap;
+    }
+
+    .payload-view .key { color: #7dd3fc; }
+    .payload-view .string { color: #86efac; }
+    .payload-view .number { color: #fcd34d; }
+
+    .sim-footer {
+      align-items: center;
+      background: rgba(255, 255, 255, 0.025);
+      border-top: 1px solid var(--card-border);
+      color: var(--text-muted);
+      display: flex;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.7rem;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.7rem 1.25rem;
+    }
+
+    .sim-footer strong {
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+
+    .live-indicator {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.4rem;
+    }
+
+    .live-indicator::before {
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+      content: "";
+      height: 6px;
+      width: 6px;
+    }
+
+    @media (max-width: 900px) {
+      .nav-links .nav-link { display: none; }
+      .overview-grid { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .nav-container { padding: 0.8rem 1rem; }
+      .brand { font-size: 1rem; }
+      .brand-badge { display: none; }
+      main { padding: 1.75rem 1rem 3rem; }
+      .hero { margin-bottom: 2rem; text-align: left; }
+      .hero-tag { font-size: 0.7rem; }
+      .hero-title { font-size: 2rem; }
+      .hero-subtitle { font-size: 0.95rem; }
+      .detail-grid { grid-template-columns: 1fr 1fr; }
+      .sim-header { align-items: stretch; flex-direction: column; }
+      .sim-controls { width: 100%; }
+      .sim-controls .btn-action { width: 100%; justify-content: center; }
+      .sim-body { font-size: 0.74rem; min-height: 360px; padding: 1rem; }
+      .sim-footer { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <span>SentinelAgent</span>
+        <span class="brand-badge">BUILDATHON DEMO</span>
+      </div>
+      <div class="nav-links">
+        <span class="top-status"><span class="status-dot"></span>LOCAL CONTROL ROOM ONLINE</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-tag">
+        <span>🏆 OmniRush Agentic Buildathon 2026</span>
+        <span>•</span>
+        <span class="text-cyan">Track: Agents & Automation</span>
+      </div>
+      <h1 class="hero-title">
+        Autonomous incident remediation<br>
+        <span>with a verified feedback loop</span>
+      </h1>
+      <p class="hero-subtitle">
+        SentinelAgent turns a structured incident into an evidence-backed change proposal. Watch it ingest the alert, inspect the target repository, synthesize a candidate fix, and verify the result with pytest.
+      </p>
+    </section>
+
+    <section class="overview-grid" aria-label="Current incident overview">
+      <article class="overview-card overview-card--incident">
+        <div class="eyebrow">Active incident / INC-20261018-0941</div>
+        <div class="overview-heading">
+          <h2>Billing pipeline regression</h2>
+          <span id="status-pill" class="status-pill is-idle"><span class="status-dot"></span>READY TO REPLAY</span>
+        </div>
+        <p class="incident-message">The batch processor throws when an empty transaction list is averaged and when a transaction contains a missing or null <code>amount</code>.</p>
+        <div class="detail-grid">
+          <div class="detail-item"><span class="detail-label">SERVICE</span><span class="detail-value">billing-pipeline</span></div>
+          <div class="detail-item"><span class="detail-label">TARGET</span><span class="detail-value">metrics_engine.py</span></div>
+          <div class="detail-item"><span class="detail-label">MODE</span><span class="detail-value">deterministic</span></div>
+          <div class="detail-item"><span class="detail-label">MAX RETRIES</span><span class="detail-value">3 iterations</span></div>
+        </div>
+      </article>
+
+      <article class="overview-card run-card">
+        <div>
+          <div class="eyebrow">Operator control</div>
+          <div class="overview-heading"><h2>Replay the healing run</h2></div>
+          <p>Start the local simulation to stream each state transition into the activity console. No API key, network call, or remote PR is required.</p>
+        </div>
+        <div>
+          <div class="run-meta">
+            <div class="run-meta-item"><strong id="run-count">0</strong><span>runs this session</span></div>
+            <div class="run-meta-item"><strong id="run-result">—</strong><span>latest outcome</span></div>
+          </div>
+          <button id="run-btn" class="btn-action" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            Trigger autonomous remediation
+          </button>
+        </div>
+      </article>
+    </section>
+
+    <!-- State Machine Steps -->
+    <div class="pipeline-heading" id="pipeline-heading">
+      <h2>Remediation pipeline</h2>
+      <span id="pipeline-state">IDLE · awaiting incident replay</span>
+    </div>
+    <section id="pipeline" class="pipeline-grid">
+      <div class="step-card" id="step-1" data-state="INGEST_INCIDENT">
+        <div class="step-num">01 · INGEST</div>
+        <div class="step-title">Incident payload</div>
+        <div class="step-desc">Reads the structured alert and identifies the suspected target module.</div>
+      </div>
+      <div class="step-card" id="step-2" data-state="DISCOVER_FILES">
+        <div class="step-num">02 · DISCOVER</div>
+        <div class="step-title">Repository scan</div>
+        <div class="step-desc">Indexes the Python source and regression suite inside the local target checkout.</div>
+      </div>
+      <div class="step-card" id="step-3" data-state="REFLECTION_LOOP">
+        <div class="step-num">03 · REFLECT</div>
+        <div class="step-title">Candidate patch</div>
+        <div class="step-desc">Forms a hypothesis, applies a candidate, and feeds failures back into the loop.</div>
+      </div>
+      <div class="step-card" id="step-4" data-state="SANDBOX_TEST">
+        <div class="step-num">04 · VERIFY</div>
+        <div class="step-title">Pytest sandbox</div>
+        <div class="step-desc">Runs the suite with a bounded subprocess and captures stdout, stderr, and exit code.</div>
+      </div>
+      <div class="step-card" id="step-5" data-state="GENERATE_PR">
+        <div class="step-num">05 · PACKAGE</div>
+        <div class="step-title">PR payload</div>
+        <div class="step-desc">Emits a verified unified diff and root-cause report for human review.</div>
+      </div>
+    </section>
+
+    <!-- Interactive Simulator -->
+    <section id="simulator" class="simulator-container">
+      <div class="sim-header">
+        <div class="sim-tabs">
+          <button class="sim-tab active" type="button" data-tab="terminal" aria-selected="true">Activity console</button>
+          <button class="sim-tab" type="button" data-tab="diff" aria-selected="false">Proposed diff</button>
+          <button class="sim-tab" type="button" data-tab="payload" aria-selected="false">Incident payload</button>
+        </div>
+        <div class="sim-controls">
+           <button id="console-run-btn" class="btn-action" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Trigger Autonomous Remediation
+          </button>
+        </div>
+      </div>
+        <div id="sim-body" class="sim-body" role="log" aria-live="polite">
+<span class="text-muted"># SentinelAgent local control room</span>
+<span class="text-muted"># Press “Trigger autonomous remediation” to stream the seeded incident through the pipeline.</span>
+       </div>
+       <div class="sim-footer"><span><strong id="console-state">IDLE</strong> · waiting for operator input</span><span class="live-indicator">bounded local simulation</span></div>
+     </section>
+
+    <!-- Metrics -->
+    <section class="metrics-bar">
+      <div class="metric-card">
+        <div class="metric-val">1 / 3</div>
+        <div class="metric-label">Seeded incident resolves in iteration</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">30 s</div>
+        <div class="metric-label">Pytest subprocess timeout guard</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">3</div>
+        <div class="metric-label">Regression tests after healing</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">0</div>
+        <div class="metric-label">API keys required for deterministic mode</div>
+      </div>
+    </section>
+
+    <!-- Specifications & Architecture -->
+    <section id="specs" class="specs-grid">
+      <div class="card">
+        <div class="card-title">
+          <span>📋</span> Judge Rebuild & Portability Contract
+        </div>
+        <ul class="check-list">
+          <li class="check-item"><span class="check-icon">✓</span> A git repository with commits</li>
+          <li class="check-item"><span class="check-icon">✓</span> Pinned dependencies (requirements.txt)</li>
+          <li class="check-item"><span class="check-icon">✓</span> Runtime version pinned (.python-version 3.11.14)</li>
+          <li class="check-item"><span class="check-icon">✓</span> Dockerfile for reproducible execution</li>
+          <li class="check-item"><span class="check-icon">✓</span> Single test command (`make test` / `pytest`)</li>
+          <li class="check-item"><span class="check-icon">✓</span> README with exact setup, run & test steps</li>
+          <li class="check-item"><span class="check-icon">✓</span> Settings documented in .env.example</li>
+          <li class="check-item"><span class="check-icon">✓</span> Zero absolute machine paths</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>⚙️</span> Dual Execution Architecture
+        </div>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+          SentinelAgent is designed for resilient judging pipelines:
+        </p>
+        <ul class="check-list">
+          <li class="check-item">
+            <span class="check-icon">⚡</span>
+            <span><strong>Deterministic Heuristic Mode (Default):</strong> Guaranteed 100% offline reproducibility for judges without requiring external API keys.</span>
+          </li>
+          <li class="check-item">
+            <span class="check-icon">🤖</span>
+             <span><strong>LLM Mode (Optional):</strong> Activates when OPENAI_API_KEY is supplied; provider output is validated before use.</span>
+          </li>
+          <li class="check-item">
+            <span class="check-icon">🛡️</span>
+             <span><strong>Bounded local tools:</strong> Confines file paths and caps pytest time; it is not a hardened container boundary.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>SentinelAgent</strong> · local dashboard for the OmniRush Agentic Buildathon 2026 · PR payload, not a remote pull request</p>
+  </footer>
+
+  <script>
+    const incident = {
+      incident_id: "INC-20261018-0941",
+      timestamp: "2026-10-18T03:20:00Z",
+      service: "billing-pipeline",
+      error_type: "ZeroDivisionError & TypeError",
+      message: "float division by zero at process_batch_transactions:34 / unsupported operand type(s) for *: 'NoneType' and 'float'",
+      suspected_file: "metrics_engine.py"
+    };
+
+    const diffContent = [
+      ["meta", "--- a/metrics_engine.py"],
+      ["meta", "+++ b/metrics_engine.py"],
+      ["meta", "@@ -7,7 +7,12 @@ calculate_discounted_tier"],
+      ["removed", '-def calculate_discounted_tier(total_amount: float, tier: str = "bronze") -> float:'],
+      ["added", '+def calculate_discounted_tier(total_amount: Optional[float], tier: Optional[str] = "bronze") -> float:'],
+      ["added", "+    if total_amount is None:"],
+      ["added", "+        return 0.0"],
+      ["removed", "-    rate = discount_rates.get(tier.lower(), 0.0)"],
+      ["added", '+    tier_clean = (tier or "bronze").lower()'],
+      ["added", "+    rate = discount_rates.get(tier_clean, 0.0)"],
+      ["meta", "@@ -24,10 +29,14 @@ process_batch_transactions"],
+      ["added", "+        if amt is None:"],
+      ["added", '+            failed_items.append({"item": tx, "reason": "Missing or null amount"})'],
+      ["added", "+            continue"],
+      ["removed", "-    average_ticket = total_volume / len(transactions)"],
+      ["added", "+    average_ticket = (total_volume / successful_count) if successful_count > 0 else 0.0"]
+    ].map(([kind, text]) => `<span class="diff-line ${kind}">${text}</span>`).join("");
+
+    const pipelineMap = {
+      INGEST_INCIDENT: { step: 1, label: "INGEST_INCIDENT" },
+      DISCOVER_FILES: { step: 2, label: "DISCOVER_FILES" },
+      BASELINE_TEST: { step: 2, label: "BASELINE_TEST" },
+      REFLECTION_LOOP: { step: 3, label: "REFLECTION_LOOP" },
+      APPLY_PATCH: { step: 3, label: "APPLY_PATCH" },
+      SANDBOX_TEST: { step: 4, label: "SANDBOX_TEST" },
+      GENERATE_PR: { step: 5, label: "GENERATE_PR" },
+      RESOLVED: { step: 5, label: "RESOLVED" }
+    };
+
+    const events = [
+      { state: "INGEST_INCIDENT", text: "🚨 [INGEST] Incoming incident payload accepted for billing-pipeline.", tone: "text-red", delay: 260 },
+      { state: "DISCOVER_FILES", text: "🔍 [DISCOVERY] Indexed 2 Python files: metrics_engine.py, test_metrics_engine.py.", tone: "text-cyan", delay: 300 },
+      { state: "BASELINE_TEST", text: "🧪 [BASELINE] Running pytest demo_repo/test_metrics_engine.py...", tone: "", delay: 300 },
+      { state: "BASELINE_TEST", text: "❌ [BASELINE] Exit code 1 · 1 passed, 2 failed.", tone: "text-red", delay: 320 },
+      { state: "REFLECTION_LOOP", text: "🔄 [REFLECTION] Iteration 1/3: formulating remediation hypothesis.", tone: "text-yellow", delay: 320 },
+      { state: "REFLECTION_LOOP", text: "💡 [HYPOTHESIS] Guard empty averages and quarantine null or missing amounts.", tone: "", delay: 260 },
+      { state: "APPLY_PATCH", text: "🛠️ [PATCH] Applying candidate fix to metrics_engine.py atomically.", tone: "text-cyan", delay: 300 },
+      { state: "SANDBOX_TEST", text: "🧪 [VERIFY] Executing bounded pytest subprocess...", tone: "", delay: 320 },
+      { state: "SANDBOX_TEST", text: "✨ [VERIFY] Exit code 0 · 3 passed.", tone: "text-green", delay: 360 },
+      { state: "GENERATE_PR", text: "📦 [ARTIFACT] Unified diff and root-cause report generated.", tone: "text-cyan", delay: 280 },
+      { state: "RESOLVED", text: "✅ [FINAL STATUS] RESOLVED · payload ready for human review.", tone: "text-green", delay: 240 }
+    ];
+
+    let currentTab = "terminal";
+    let isRunning = false;
+    let runCount = 0;
+    let terminalMarkup = "";
+
+    const byId = (id) => document.getElementById(id);
+    const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>\"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"
+      }[char]));
+    }
+
+    function setPipeline(state) {
+      const current = pipelineMap[state];
+      document.querySelectorAll(".step-card").forEach((card) => {
+        const step = Number(card.id.replace("step-", ""));
+        card.classList.toggle("active", Boolean(current && step === current.step));
+        card.classList.toggle("complete", Boolean(current && step < current.step));
+      });
+      byId("pipeline-state").textContent = current ? `${current.label} · max 3 iterations` : "IDLE · awaiting incident replay";
+      byId("console-state").textContent = current ? current.label : "IDLE";
+    }
+
+    function setStatus(label, mode) {
+      const pill = byId("status-pill");
+      pill.className = `status-pill ${mode ? `is-${mode}` : ""}`;
+      pill.innerHTML = `<span class="status-dot"></span>${label}`;
+    }
+
+    function activateTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll(".sim-tab").forEach((button) => {
+        const selected = button.dataset.tab === tab;
+        button.classList.toggle("active", selected);
+        button.setAttribute("aria-selected", String(selected));
+      });
+      renderTab();
+    }
+
+    function renderTab() {
+      const body = byId("sim-body");
+      if (currentTab === "diff") {
+        body.innerHTML = diffContent;
+        body.scrollTop = 0;
+        return;
+      }
+      if (currentTab === "payload") {
+        body.innerHTML = `<pre class="payload-view">${escapeHtml(JSON.stringify(incident, null, 2))}</pre>`;
+        body.scrollTop = 0;
+        return;
+      }
+      body.innerHTML = terminalMarkup || '<span class="text-muted"># Click “Trigger autonomous remediation” to replay the seeded incident.</span>';
+    }
+
+    function appendTerminalLine(event) {
+      const line = document.createElement("div");
+      line.className = `terminal-line ${event.tone || ""}`;
+      line.textContent = event.text;
+      byId("sim-body").appendChild(line);
+      byId("sim-body").scrollTop = byId("sim-body").scrollHeight;
+      terminalMarkup = byId("sim-body").innerHTML;
+    }
+
+    function wait(ms) {
+      return new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : ms));
+    }
+
+    async function runSimulation() {
+      if (isRunning) return;
+      isRunning = true;
+      runCount += 1;
+      byId("run-count").textContent = String(runCount);
+      byId("run-result").textContent = "RUNNING";
+      byId("run-btn").disabled = true;
+      byId("console-run-btn").disabled = true;
+      setStatus("RUNNING", "running");
+      activateTab("terminal");
+      byId("sim-body").innerHTML = "";
+      terminalMarkup = "";
+      setPipeline(null);
+
+      const intro = document.createElement("div");
+      intro.className = "terminal-line text-cyan";
+      intro.textContent = "# SENTINEL AGENT · AUTONOMOUS INCIDENT REMEDIATION";
+      byId("sim-body").appendChild(intro);
+      terminalMarkup = byId("sim-body").innerHTML;
+
+      for (const event of events) {
+        setPipeline(event.state);
+        appendTerminalLine(event);
+        await wait(event.delay);
+      }
+
+      isRunning = false;
+      byId("run-btn").disabled = false;
+      byId("console-run-btn").disabled = false;
+      byId("run-result").textContent = "RESOLVED";
+      setStatus("RESOLVED", "")
+      byId("console-state").textContent = "RESOLVED";
+    }
+
+    document.querySelectorAll(".sim-tab").forEach((button) => {
+      button.addEventListener("click", () => activateTab(button.dataset.tab));
+    });
+    byId("run-btn").addEventListener("click", runSimulation);
+    byId("console-run-btn").addEventListener("click", runSimulation);
+    setPipeline(null);
+  </script>
+</body>
+</html>

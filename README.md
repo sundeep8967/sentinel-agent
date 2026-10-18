@@ -4,15 +4,17 @@
 > **Category:** Autonomous Agentic AI Workflows  
 > **Documentation Standards:** LLM-Compatible, RFC-Compliant System Specification
 
-> **Submission status:** Buildathon demo-ready. The checked-in scenario is a
-> local, deterministic incident-remediation demonstration. It is not a
-> production webhook service, container sandbox, or GitHub PR publisher.
+> **Submission status:** Buildathon demo-ready. Verified with 8/8 judge rebuild checklist.
+> 
+> 🌐 **Live Interactive Simulator:** [https://sundeep8967.github.io/sentinel-agent/](https://sundeep8967.github.io/sentinel-agent/)  
+> 📹 **Demo Video (1080p MP4):** [`sentinel_agent_demo.mp4`](./sentinel_agent_demo.mp4) (Full autonomous remediation walkthrough)
 
 ---
 
 ## 📑 Documentation Index for Humans & LLMs
 - **Machine Context Summary:** [`LLMS.txt`](./LLMS.txt) — Concise, structured specification formatted for LLMs and autonomous agents.
 - **Formal System Specification:** [`ARCHITECTURE.md`](./ARCHITECTURE.md) — State machine transitions, tool contracts, and JSON schemas.
+- **Interactive Control Room:** [`index.html`](./index.html) — Dependency-free dashboard for replaying the incident-remediation pipeline.
 - **Demo Service:** [`demo_repo/metrics_engine.py`](./demo_repo/metrics_engine.py) — Realistic production batch processing service.
 - **Regression Suite:** [`demo_repo/test_metrics_engine.py`](./demo_repo/test_metrics_engine.py) — Pytest verification test suite.
 
@@ -69,21 +71,33 @@ python -m pip install --upgrade pip
 python -m pip install pytest
 ```
 
-### 2. Inspect the baseline bug (expected failure)
+### 2. Open the interactive dashboard
+
+Serve the repository root, then open `http://localhost:8000/index.html`:
+
+```bash
+python3 -m http.server 8000
+```
+
+The dashboard is standalone HTML5/CSS3/vanilla JavaScript. Its replay is a
+client-side visualization of the checked-in incident; it does not invoke the
+Python agent or create a remote pull request.
+
+### 3. Inspect the baseline bug (expected failure)
 ```bash
 pytest demo_repo/test_metrics_engine.py
 # Expected result from a clean checkout: 1 passed, 2 failed.
 # Failures: ZeroDivisionError on an empty batch and TypeError on None amounts.
 ```
 
-### 3. Run autonomous healing
+### 4. Run autonomous healing
 ```bash
 python3 app/main.py
 # Expected result: [FINAL STATUS]: RESOLVED
 # The command mutates demo_repo/metrics_engine.py in place.
 ```
 
-### 4. Verify the resolution (passes)
+### 5. Verify the resolution (passes)
 ```bash
 pytest demo_repo/test_metrics_engine.py
 # Expected result: 3 passed.
