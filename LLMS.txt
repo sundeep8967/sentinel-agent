@@ -6,19 +6,19 @@
 - Purpose: Autonomous Site Reliability Engineering (SRE) and Code Self-Healing Agent.
 - Category: Autonomous Multi-Step Agentic Workflows.
 - Primary Runtime: Python 3.10+
-- Repository Root: /Users/apple/Desktop/anto/sentinel-agent
+- Repository Root: repository root (`.`)
 
 ## High-Level Capabilities
 1. Ingests structured JSON incident payloads simulating APM/error alerts (e.g., Sentry, Datadog).
 2. Uses tool calling to inspect local file trees, read source files, and write candidate fixes.
-3. Executes a sandboxed subprocess running unit test suites (`pytest`).
+3. Executes a bounded subprocess running unit test suites (`python -m pytest`).
 4. Implements an iterative reflection loop: evaluates test failure outputs (`stdout`/`stderr`), adapts hypothesis, modifies source code, and re-tests until pass criteria are met or `max_iterations` is reached.
-5. Emits a structured Pull Request artifact containing unified git diff, root cause analysis, and execution verification logs.
+5. Emits a structured Pull Request artifact containing a unified diff, root cause analysis, and execution verification logs; it does not create a remote PR.
 
 ## Core File Index
-- `app/main.py`: CLI driver. Simulates incoming incident webhook, invokes SentinelAgent, and renders PR output.
+- `app/main.py`: CLI driver. Simulates one local incident payload, invokes SentinelAgent, and renders a PR payload.
 - `app/agent.py`: `SentinelAgent` class containing the state machine, reflection loop, patch generation, and diff computation.
-- `app/tools.py`: `CodebaseSandbox` class exposing tools: `list_files()`, `read_file()`, `write_file()`, `run_tests()`, `get_diff()`.
+- `app/tools.py`: `CodebaseSandbox` class exposing path-confined tools: `list_files()`, `read_file()`, `write_file()`, `run_tests()`, `get_diff()`.
 - `demo_repo/metrics_engine.py`: Target service under test (contains unhandled null/division edge cases).
 - `demo_repo/test_metrics_engine.py`: Pytest suite with 3 test cases asserting resilience.
 - `ARCHITECTURE.md`: In-depth state machine, schemas, and API tool specifications.
@@ -34,5 +34,6 @@ REFLECTION_LOOP:
   - If FAIL and iteration >= max_iterations -> UNRESOLVED -> DONE
 
 ## Environmental Assumptions
-- `pytest` is available on the system PATH.
-- LLM Provider: Supports `OPENAI_API_KEY` or `GEMINI_API_KEY`. If unset, the agent automatically falls back to deterministic rule-based reflection synthesis so evaluation never breaks.
+- The active Python environment has `pytest` installed; the agent invokes it as `python -m pytest`.
+- LLM Provider: Optional OpenAI support via `OPENAI_API_KEY`. If unset or unavailable, the agent falls back to deterministic metrics-scenario synthesis so evaluation remains reproducible. `GEMINI_API_KEY` is not implemented.
+- Submission scope: Local demo only; no HTTP listener, container isolation, branch/commit creation, or remote GitHub PR integration.

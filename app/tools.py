@@ -1,10 +1,28 @@
 import subprocess
 import os
+import sys
+import tempfile
+from pathlib import Path
 from typing import Dict, Any, List
 
 class CodebaseSandbox:
     def __init__(self, repo_dir: str):
-        self.repo_dir = os.path.abspath(repo_dir)
+        self.repo_dir = Path(repo_dir).resolve()
+        if not self.repo_dir.is_dir():
+            raise NotADirectoryError(f"Repository directory not found: {repo_dir}")
+
+    def _resolve_file(self, relative_path: str) -> Path:
+        """Resolve a repository-relative file without allowing path escapes."""
+        candidate = Path(relative_path)
+        if candidate.is_absolute():
+            raise ValueError(f"Absolute paths are not allowed: {relative_path}")
+
+        resolved = (self.repo_dir / candidate).resolve()
+        try:
+            resolved.relative_to(self.repo_dir)
+        except ValueError as exc:
+            raise ValueError(f"Path escapes repository: {relative_path}") from exc
+        return resolved
 
     def list_files(self) -> List[str]:
         """Lists Python source and test files in the target repository."""
@@ -18,24 +36,40 @@ class CodebaseSandbox:
 
     def read_file(self, relative_path: str) -> str:
         """Reads content of a file in the repository."""
-        full_path = os.path.join(self.repo_dir, relative_path)
-        if not os.path.exists(full_path):
+        full_path = self._resolve_file(relative_path)
+        if not full_path.is_file():
             raise FileNotFoundError(f"File not found: {relative_path}")
         with open(full_path, "r", encoding="utf-8") as f:
             return f.read()
 
     def write_file(self, relative_path: str, content: str) -> str:
-        """Overwrites content of a file in the repository."""
-        full_path = os.path.join(self.repo_dir, relative_path)
-        with open(full_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        """Atomically replace an existing repository file."""
+        full_path = self._resolve_file(relative_path)
+        if not full_path.is_file():
+            raise FileNotFoundError(f"File not found: {relative_path}")
+
+        temp_path = None
+        try:
+            fd, temp_path = tempfile.mkstemp(
+                dir=full_path.parent,
+                prefix=f".{full_path.name}.",
+                text=True,
+            )
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, full_path)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
         return f"Successfully updated {relative_path}"
 
     def run_tests(self) -> Dict[str, Any]:
         """Runs the pytest suite in the repo directory and returns structured pass/fail status and logs."""
         try:
             res = subprocess.run(
-                ["pytest", "-v"],
+                [sys.executable, "-m", "pytest", "-v"],
                 cwd=self.repo_dir,
                 capture_output=True,
                 text=True,

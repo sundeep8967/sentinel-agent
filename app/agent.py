@@ -2,7 +2,10 @@ import os
 import json
 import difflib
 from typing import Dict, Any, List, Optional
-from tools import CodebaseSandbox
+try:
+    from .tools import CodebaseSandbox
+except ImportError:  # Supports direct execution through app/main.py.
+    from tools import CodebaseSandbox
 
 class SentinelAgent:
     """
@@ -17,7 +20,7 @@ class SentinelAgent:
     def __init__(self, sandbox: CodebaseSandbox, max_iterations: int = 3, api_key: Optional[str] = None):
         self.sandbox = sandbox
         self.max_iterations = max_iterations
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.history: List[Dict[str, Any]] = []
 
     def run(self, incident_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -97,6 +100,8 @@ class SentinelAgent:
             pr_payload = self._generate_pr_summary(incident_payload, diff, iteration)
             return {"status": "RESOLVED", "pr": pr_payload, "history": self.history}
         else:
+            # Do not leave the target checkout in a failed candidate state.
+            self.sandbox.write_file(target_file, original_code)
             return {"status": "UNRESOLVED", "history": self.history}
 
     def _generate_patch(self, incident_payload: Dict[str, Any], file_name: str, current_code: str, error_trace: str, iteration: int) -> Dict[str, str]:
@@ -131,12 +136,23 @@ Return valid JSON with keys:
                     response_format={"type": "json_object"}
                 )
                 data = json.loads(resp.choices[0].message.content)
+                if (
+                    not isinstance(data, dict)
+                    or not isinstance(data.get("hypothesis"), str)
+                    or not isinstance(data.get("new_code"), str)
+                ):
+                    raise ValueError("LLM response must contain string hypothesis and new_code fields")
                 return data
             except Exception as e:
                 print(f"ℹ️ [LLM Fallback]: ({e}), executing native agent self-reflection rules.")
 
         # Self-healing synthesis logic
-        if iteration == 1 and "ZeroDivisionError" in error_trace and "TypeError" in error_trace:
+        if (
+            iteration == 1
+            and os.path.basename(file_name) == "metrics_engine.py"
+            and "ZeroDivisionError" in error_trace
+            and "TypeError" in error_trace
+        ):
             hypothesis = "Identified two root causes: (1) Division by zero when transactions count is 0, and (2) NoneType/missing amount in items causing calculation crashes. Implementing safety checks and item validation."
             
             fixed_code = '''"""

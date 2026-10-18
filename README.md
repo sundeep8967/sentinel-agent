@@ -4,6 +4,10 @@
 > **Category:** Autonomous Agentic AI Workflows  
 > **Documentation Standards:** LLM-Compatible, RFC-Compliant System Specification
 
+> **Submission status:** Buildathon demo-ready. The checked-in scenario is a
+> local, deterministic incident-remediation demonstration. It is not a
+> production webhook service, container sandbox, or GitHub PR publisher.
+
 ---
 
 ## 📑 Documentation Index for Humans & LLMs
@@ -21,11 +25,11 @@ Modern monitoring and APM platforms (Datadog, Sentry, CloudWatch) alert engineer
 
 ### The SentinelAgent Solution
 **SentinelAgent** transforms passive alerting into active, autonomous self-healing:
-1. **Event Ingestion:** Consumes structured incident webhooks containing error types, messages, and stack traces.
+1. **Event Ingestion:** Accepts a structured incident payload; `app/main.py` currently supplies a hard-coded local webhook simulation.
 2. **Codebase Exploration:** Automatically explores repository files and isolates the target module.
 3. **Hypothesis & Candidate Patching:** Synthesizes an initial code remediation hypothesis and applies candidate code.
-4. **Sandboxed Reflection & Verification:** Executes unit and regression tests in an isolated subprocess. If tests fail, it captures stdout/stderr, reflects on the exact failure reason, and self-corrects in an automated loop.
-5. **Verified Pull Request Generation:** Generates a unified diff, detailed root-cause documentation, and verification proof.
+4. **Sandboxed Reflection & Verification:** Executes unit and regression tests in a bounded subprocess. If tests fail, it captures stdout/stderr, reflects on the exact failure reason, and self-corrects in an automated loop.
+5. **Verified Pull Request Artifact:** Generates a unified diff, detailed root-cause documentation, and verification proof. The demo does not open a remote pull request.
 
 ---
 
@@ -33,19 +37,19 @@ Modern monitoring and APM platforms (Datadog, Sentry, CloudWatch) alert engineer
 
 ```mermaid
 flowchart TD
-    A["🚨 Incident Webhook"] --> B["Sentinel Core Agent"]
+    A["🚨 Simulated Incident Payload"] --> B["Sentinel Core Agent"]
     
     subgraph Agentic Self-Reflection Loop
         B -->|"Tool: list_files / read_file"| C["Repository Files"]
         C --> B
         B -->|"Formulate Hypothesis"| D["Candidate Patch"]
-        D -->|"Tool: write_file & run_tests"| E["Isolated Sandbox"]
+        D -->|"Tool: write_file & run_tests"| E["Bounded Local Test Process"]
         E -->|"Evaluate Results"| F{"Tests Pass?"}
         F -->|"No: Analyze Stderr / Logs"| B
         F -->|"Yes: Verify Diff"| G["Remediation Confirmed"]
     end
     
-    G --> H["📦 Automated PR & Post-Mortem Report"]
+    G --> H["📦 PR Payload & Post-Mortem Report"]
 ```
 
 ---
@@ -54,32 +58,87 @@ flowchart TD
 
 ### 1. Requirements
 - Python 3.10+
-- `pytest`
+- `pytest` (installed in the active Python environment)
 
-### 2. Inspect Baseline Bug (Fails)
+Create a reproducible local environment from the repository root:
+
 ```bash
-pytest demo_repo/test_metrics_engine.py
-# Result: 2 FAILED (ZeroDivisionError on empty batch, TypeError on None amounts)
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install pytest
 ```
 
-### 3. Run Autonomous Healing
+### 2. Inspect the baseline bug (expected failure)
+```bash
+pytest demo_repo/test_metrics_engine.py
+# Expected result from a clean checkout: 1 passed, 2 failed.
+# Failures: ZeroDivisionError on an empty batch and TypeError on None amounts.
+```
+
+### 3. Run autonomous healing
 ```bash
 python3 app/main.py
+# Expected result: [FINAL STATUS]: RESOLVED
+# The command mutates demo_repo/metrics_engine.py in place.
 ```
 
-### 4. Verify Resolution (Passes)
+### 4. Verify the resolution (passes)
 ```bash
 pytest demo_repo/test_metrics_engine.py
-# Result: 3 PASSED in 0.13s
+# Expected result: 3 passed.
 ```
+
+To replay the clean demonstration, use a fresh checkout or restore only the
+demo fixture after inspecting the generated diff:
+
+```bash
+git restore --source=HEAD -- demo_repo/metrics_engine.py
+```
+
+If the fixture is already fixed, a subsequent run reports
+`NO_ACTION_NEEDED`; it does not create another candidate patch.
 
 ---
 
 ## 🤖 Dual Execution Architecture (LLM + Deterministic Engine)
 
-SentinelAgent is built to be resilient in both production environments and automated judging pipelines:
-- **LLM Mode:** When `OPENAI_API_KEY` or `GEMINI_API_KEY` is present in the environment, the agent uses frontier LLMs to analyze stack traces and dynamically write code.
-- **Deterministic Heuristic Mode:** If API keys are absent or rate-limited, SentinelAgent falls back to its built-in AST/heuristic reflection engine, ensuring the full multi-step loop, test verification, and PR creation execute without breaking during evaluation.
+SentinelAgent is built to be resilient in automated judging pipelines:
+- **LLM Mode (optional):** When `OPENAI_API_KEY` is present, the agent calls the OpenAI client using the configured model in `app/agent.py` and validates the returned JSON contract. No API key is required for the demo.
+- **Deterministic Heuristic Mode (default for judging):** If the OpenAI key is absent or the provider call fails, SentinelAgent falls back to its built-in scenario-specific synthesis engine. This keeps the multi-step loop and test verification reproducible.
+
+`GEMINI_API_KEY` is not a supported provider setting in this revision. The
+deterministic path is the recommended buildathon replay path; never commit API
+keys to the repository.
+
+## 🎯 Demo Scope and Submission Contract
+
+The submitted flow is intentionally small and reviewable:
+
+- `app/main.py` simulates one incident for `demo_repo/metrics_engine.py`; it is
+  not an HTTP webhook listener.
+- The deterministic repair handles the two seeded metrics failures: empty
+  batches and missing or null transaction amounts. It is not a general patch
+  synthesizer for arbitrary repositories.
+- `CodebaseSandbox` operates on a local checkout. It bounds the pytest process
+  and rejects repository path escapes, but it is not a container or a complete
+  security boundary.
+- A successful run emits a `PullRequestPayload` containing a title, body, and
+  unified diff. It does not create a branch, commit, or remote GitHub PR.
+- If all candidate iterations fail, the original target file is restored;
+  successful remediation remains in the demo checkout so the generated diff
+  can be inspected.
+
+## ✅ Buildathon Readiness Checklist
+
+- [x] Clean-checkout baseline reproduces the two intended failures.
+- [x] `python3 app/main.py` repairs the scenario in one deterministic iteration.
+- [x] The post-remediation regression suite reports three passing tests.
+- [x] README, architecture specification, and machine-readable context agree
+  on the local-demo scope and output artifact.
+- [x] No credentials or generated Python cache files are required in git.
+- [ ] Production integrations (real webhook ingestion, provider abstraction,
+  isolated container execution, and remote PR creation) remain future work.
 
 ---
 
@@ -113,6 +172,9 @@ Location:   metrics_engine.py
 📋 [FINAL STATUS]: RESOLVED
 ======================================================================
 
-🎉 PULL REQUEST CREATED SUCCESSFULLY:
+🎉 PULL REQUEST PAYLOAD GENERATED:
 Title: fix(metrics): resolve ZeroDivisionError & TypeError in batch processor
 ```
+
+The output above is a representative local run. Exact timing and pytest
+plugin details depend on the active Python environment.

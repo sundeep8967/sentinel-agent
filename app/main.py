@@ -2,12 +2,14 @@ import os
 import sys
 import time
 
-# Ensure app package is importable
+# Ensure the repository root is importable when this file is run directly.
 current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
+repo_root = os.path.dirname(current_dir)
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
-from tools import CodebaseSandbox
-from agent import SentinelAgent
+from app.tools import CodebaseSandbox
+from app.agent import SentinelAgent
 
 def main():
     repo_path = os.path.join(os.path.dirname(current_dir), "demo_repo")
@@ -38,11 +40,13 @@ def main():
 
     if result["status"] == "RESOLVED":
         pr = result["pr"]
-        print(f"\n🎉 PULL REQUEST CREATED SUCCESSFULLY:")
+        print(f"\n🎉 PULL REQUEST PAYLOAD GENERATED:")
         print(f"Title: {pr['title']}\n")
         print(pr["body"])
+    elif result["status"] == "NO_ACTION_NEEDED":
+        print("ℹ️ No action was needed; the target test suite is already passing.")
     else:
-        print("❌ Could not resolve issue within iteration threshold.")
+        print("❌ Could not resolve the issue within the iteration threshold.")
 
 if __name__ == "__main__":
     main()
