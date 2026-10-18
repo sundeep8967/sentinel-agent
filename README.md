@@ -7,7 +7,7 @@
 > **Submission status:** Buildathon demo-ready. Verified with 8/8 judge rebuild checklist.
 > 
 > 🌐 **Live Interactive Simulator:** [https://sundeep8967.github.io/sentinel-agent/](https://sundeep8967.github.io/sentinel-agent/)  
-> 📹 **Demo Video (1080p MP4):** [`sentinel_agent_demo.mp4`](./sentinel_agent_demo.mp4) (Full autonomous remediation walkthrough)
+> 📹 **Demo Video (YouTube):** [https://youtu.be/6QjIrtFnqPE](https://youtu.be/6QjIrtFnqPE) (Direct download: [`sentinel_agent_demo.mp4`](./sentinel_agent_demo.mp4))
 
 ---
 
